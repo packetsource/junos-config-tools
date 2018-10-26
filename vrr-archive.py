@@ -48,11 +48,29 @@ if mode=="load":
 		sys.stderr.write("\treading %s... " % host)
 		file = tgz.extractfile(host)
 		config = file.read()
-		sys.stderr.write("\t%d byte(s)\n" % len(config))
+		sys.stderr.write("\t%d byte(s)" % len(config))
 
-		with Device(host=host, user="user", ssh_config=SSH_CONFIG, port=22) as dev:   
-			dev.rpc.load_config(etree.fromstring(config), action="replace")
-			dev.rpc.commit()
+                # For reasons I don't understand (but Phil Shafer probably does)
+                # a JUNOS 15.1F NETCONF server doesn't always seem to receive
+                # (and thus respond to) the <close-connection> RPC that results
+                # from the device.close() call. Seems related to the differences
+                # between running NETCONF subsytem over vanilla SSH tcp/22
+                # versus the dedicated server
+                #
+                # As a result, we avoid Python's otherwise hugely appropriate 
+                # "with" pattern because we need to frig with the timeout and 
+                # mask the close exception out
+                device = Device(host=host, user="user", ssh_config=SSH_CONFIG, port=22)
+                device.open()
+		device.rpc.load_config(etree.fromstring(config), action="override")
+		device.rpc.commit()
+                device.timeout = 2
+                try:
+                    device.close()
+                except:
+                    sys.stderr.write("!")
+                    pass
+                sys.stderr.write("\n")
 
 	tgz.close()
 

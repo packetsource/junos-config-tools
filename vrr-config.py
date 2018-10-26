@@ -12,7 +12,7 @@ from string import Template
 # Stack traces not necessary here
 def onError(exception_type, exception, traceback):
     print "%s: %s" % (exception_type.__name__, exception)
-sys.excepthook = onError
+#sys.excepthook = onError
 
 if len(sys.argv)<2:
 	sys.stderr.write("Usage: %s filename [host1 host2 host3 ...]\n" % sys.argv[0])
@@ -33,15 +33,26 @@ for host in HOSTS:
 
 	index = filter(str.isdigit, host)
 
-	# This edits the global candidate configuration so errors increment
 	sys.stderr.write("\twriting configuraton to %s... " % host)
 	config = template.substitute(id=index, host=host)
-	with Device(host=host, user="user", ssh_config=SSH_CONFIG, port=22) as dev:  
-		sys.stderr.write("loading... ") 
-		dev.rpc.open_configuration(private=True, ignore_warning=True)
-		dev.rpc.load_config(config, ignore_warning=True, action="set", format="text")
-		sys.stderr.write("committing... ") 
-		dev.rpc.commit()
-		sys.stderr.write("OK\n") 
 
+        device = Device(host=host, user="user", ssh_config=SSH_CONFIG, port=22)
+        device.open()
+
+        sys.stderr.write("loading... ") 
+	device.rpc.open_configuration(private=True, ignore_warning=True)
+	device.rpc.load_config(config, ignore_warning=True, action="set", format="text")
+
+        sys.stderr.write("committing... ") 
+	device.rpc.commit()
+	sys.stderr.write("OK") 
+
+        device.timeout=2
+        try:
+            device.close()
+        except:
+	    sys.stderr.write("!") 
+            pass
+
+        sys.stderr.write("\n")
 
